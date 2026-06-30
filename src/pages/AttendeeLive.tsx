@@ -1,0 +1,267 @@
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { CheckCircle2, Loader2 } from 'lucide-react'
+import { clsx } from 'clsx'
+import { Logo, LiveDot, ProgressBar } from '@/components/ui'
+import { useAttendeeStore } from '@/stores'
+import { useRealtimeSession } from '@/hooks/useRealtime'
+import { api } from '@/lib/api'
+import type { WorkshopStep } from '@/types'
+
+// ── Option button ─────────────────────────────────────────────────
+function OptionBtn({ label, text, state, onClick }: {
+  label: string; text: string
+  state: 'default' | 'selected' | 'correct' | 'wrong' | 'dim'
+  onClick?: () => void
+}) {
+  const styles = {
+    default:  'opt-default',
+    selected: 'opt-selected',
+    correct:  'opt-correct',
+    wrong:    'opt-wrong',
+    dim:      'opt-dim',
+  }
+  return (
+    <button className={styles[state]} onClick={onClick} disabled={state !== 'default'}>
+      <span className={clsx(
+        'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0',
+        state === 'correct'  ? 'bg-emerald-100 text-emerald-700' :
+        state === 'wrong'    ? 'bg-red-100 text-red-600' :
+        state === 'selected' ? 'bg-brand-100 text-brand-700' :
+                               'bg-gray-100 text-gray-500'
+      )}>{label}</span>
+      <span className="flex-1 text-left">{text}</span>
+      {state === 'correct' && <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />}
+    </button>
+  )
+}
+
+// ── Slide view ────────────────────────────────────────────────────
+function SlideView({ step }: { step: WorkshopStep }) {
+  return (
+    <div className="animate-slide-up">
+      <div className="text-center mb-6">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600 text-xs font-semibold mb-4">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> Now presenting
+        </span>
+        <h2 className="text-2xl font-bold text-gray-900 leading-tight">{step.title}</h2>
+      </div>
+      <div className="space-y-3">
+        {(step.talking_points || []).map((pt, i) => (
+          <div key={i} className="flex gap-3 p-4 bg-white border border-gray-150 rounded-xl shadow-card animate-slide-up"
+            style={{ animationDelay: `${i * 60}ms` }}>
+            <div className="w-6 h-6 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-xs font-bold text-brand-600">{i + 1}</span>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">{pt}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Interaction view ──────────────────────────────────────────────
+function InteractionView({ step, myAnswer, onAnswer }: {
+  step: WorkshopStep; myAnswer?: number; onAnswer: (i: number) => void
+}) {
+  const isPoll = step.type === 'poll'
+  const isQuiz = step.type === 'quiz'
+  const hasAnswered = myAnswer !== undefined
+
+  return (
+    <div className="animate-slide-up">
+      <div className={clsx('p-4 rounded-xl border-2 mb-5',
+        isPoll ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'
+      )}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className={clsx('badge', isPoll ? 'badge-poll' : 'badge-quiz')}>
+            {isPoll ? '📊 Poll' : '❓ Quiz'}
+          </span>
+          {isQuiz && !hasAnswered && <span className="text-xs text-gray-500">Pick the correct answer</span>}
+        </div>
+        <p className="text-base font-bold text-gray-900 leading-snug">{step.question}</p>
+      </div>
+
+      <div className="space-y-2.5">
+        {(step.options || []).map((opt, i) => {
+          let state: 'default' | 'selected' | 'correct' | 'wrong' | 'dim' = 'default'
+          if (hasAnswered) {
+            const isCorrectOpt = isQuiz && i === step.correct_answer
+            if (isCorrectOpt) state = 'correct'
+            else if (i === myAnswer) state = isQuiz ? 'wrong' : 'selected'
+            else state = 'dim'
+          }
+          return <OptionBtn key={i} label={String.fromCharCode(65 + i)} text={opt} state={state}
+            onClick={() => !hasAnswered && onAnswer(i)} />
+        })}
+      </div>
+
+      {hasAnswered && (
+        <div className="mt-4 animate-scale-in">
+          {isQuiz && (
+            <div className={clsx('p-4 rounded-xl border-2',
+              myAnswer === step.correct_answer ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
+            )}>
+              <p className={clsx('text-sm font-bold mb-1',
+                myAnswer === step.correct_answer ? 'text-emerald-700' : 'text-red-600'
+              )}>
+                {myAnswer === step.correct_answer ? '✅ Correct!' : '❌ Not quite'}
+              </p>
+              {step.explanation && <p className="text-xs text-gray-600 leading-relaxed">{step.explanation}</p>}
+            </div>
+          )}
+          {isPoll && (
+            <p className="text-center text-sm text-gray-400 py-3">
+              Response recorded ✓ — waiting for host to advance
+            </p>
+          )}
+          {isQuiz && <p className="text-center text-xs text-gray-400 mt-2">Waiting for host to advance…</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main ──────────────────────────────────────────────────────────
+export default function AttendeeLive() {
+  const nav = useNavigate()
+  const { sessionId, workshop, currentStep, myAnswers, currentEventId,
+    setCurrentStep, submitAnswer, participantId, roomCode } = useAttendeeStore()
+
+  const [ended, setEnded] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+
+  const eventIdRef = useRef<string>('')
+  const currentStepRef = useRef(currentStep)
+  currentStepRef.current = currentStep
+  useEffect(() => { if (currentEventId) eventIdRef.current = currentEventId }, [currentEventId])
+
+  useEffect(() => { if (!sessionId) nav('/join') }, [sessionId, nav])
+
+  const syncStep = useCallback(async () => {
+    if (!roomCode) return
+    setSyncing(true)
+    try {
+      const s = await api.getSessionByCode(roomCode) as any
+      if (s.status === 'ended') { setEnded(true); return }
+      if (s.last_event_id) eventIdRef.current = s.last_event_id
+      const newIdx = Number(s.current_step_index)
+      if (newIdx !== currentStepRef.current) setCurrentStep(newIdx, eventIdRef.current)
+    } catch { /* */ } finally { setSyncing(false) }
+  }, [roomCode, setCurrentStep])
+
+  useRealtimeSession(sessionId, {
+    onStepAdvance: (row) => {
+      if (row.status === 'ended') { setEnded(true); return }
+      const newIdx = Number(row.current_step_index)
+      if (newIdx !== currentStepRef.current) setCurrentStep(newIdx, eventIdRef.current)
+    },
+    onLiveEvent: (row) => {
+      const evId = String(row.id || '')
+      const newIdx = Number(row.step_index)
+      if (evId) eventIdRef.current = evId
+      if (newIdx !== currentStepRef.current) setCurrentStep(newIdx, evId)
+    },
+    onSessionEnded: () => setEnded(true),
+  })
+
+  useEffect(() => {
+    const iv = setInterval(syncStep, 3000)
+    return () => clearInterval(iv)
+  }, [syncStep])
+
+  const handleAnswer = async (optionIdx: number) => {
+    if (!sessionId || !participantId) return
+    const step = workshop?.steps[currentStep]
+    const isCorrect = step?.type === 'quiz' ? optionIdx === step.correct_answer : undefined
+    submitAnswer(currentStep, optionIdx)
+    const evId = eventIdRef.current
+    console.log('[PulseClass] answer submit', { evId, optionIdx })
+    if (evId) {
+      try {
+        await api.submitAnswer(sessionId, { event_id: evId, participant_id: participantId, answer: String(optionIdx), is_correct: isCorrect })
+      } catch (e) { console.error('[PulseClass] submit failed:', e) }
+    } else {
+      console.warn('[PulseClass] no event_id — host must click Next first')
+    }
+  }
+
+  const steps = workshop?.steps || []
+  const currentStepData = steps[currentStep] as WorkshopStep | undefined
+  const myAnswer = myAnswers[currentStep]
+  const quizSteps = steps.filter(s => s.type === 'quiz')
+  const correctCount = quizSteps.filter(s => myAnswers[steps.indexOf(s)] === s.correct_answer).length
+
+  if (ended) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-sm bg-white rounded-3xl shadow-card-lg border border-gray-150 p-10 animate-scale-in">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">All done! 🎉</h2>
+          <p className="text-sm text-gray-500 mb-7">Great work participating.</p>
+          <div className="grid grid-cols-3 gap-3 mb-7">
+            {[
+              { label: 'Answered', value: Object.keys(myAnswers).length },
+              { label: 'Score', value: `${correctCount}/${quizSteps.length}` },
+              { label: 'Accuracy', value: quizSteps.length > 0 ? `${Math.round(correctCount / quizSteps.length * 100)}%` : '—' },
+            ].map(s => (
+              <div key={s.label} className="bg-gray-50 border border-gray-150 rounded-xl p-3 text-center">
+                <p className="text-xl font-bold text-gray-900">{s.value}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => nav('/')} className="btn-primary w-full justify-center py-3">Back to home</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col max-w-lg mx-auto">
+      {/* Top bar */}
+      <div className="bg-white border-b border-gray-150 shadow-sm sticky top-0 z-40 px-4 py-3 flex items-center justify-between">
+        <Logo size="sm" />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-lg">
+            <LiveDot /><span className="text-xs font-bold text-red-600">LIVE</span>
+          </div>
+          <div className={clsx('w-2 h-2 rounded-full transition-all', syncing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400')} title={syncing ? 'Syncing…' : 'Live'} />
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div className="bg-white border-b border-gray-100 px-4 py-3">
+        <ProgressBar value={currentStep} max={steps.length} />
+        <div className="flex justify-between mt-1.5">
+          <p className="text-xs font-medium text-gray-400">Step {currentStep + 1} of {steps.length}</p>
+          {quizSteps.length > 0 && <p className="text-xs font-medium text-gray-400">Score: {correctCount}/{quizSteps.length}</p>}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 px-4 py-5">
+        {!currentStepData ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center mb-3">
+              <Loader2 className="w-6 h-6 text-brand-500 animate-spin" />
+            </div>
+            <p className="text-sm text-gray-500">Waiting for host to start…</p>
+          </div>
+        ) : currentStepData.type === 'slide'
+          ? <SlideView step={currentStepData} />
+          : <InteractionView step={currentStepData} myAnswer={myAnswer} onAnswer={handleAnswer} />
+        }
+      </div>
+
+      {/* Bottom */}
+      <div className="bg-white border-t border-gray-100 py-3 flex items-center justify-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <p className="text-xs text-gray-400">Synced with host · auto-updating</p>
+      </div>
+    </div>
+  )
+}

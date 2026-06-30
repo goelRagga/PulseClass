@@ -1,0 +1,68 @@
+import { clsx } from 'clsx'
+import type { StepResult } from '@/types'
+
+export function LiveBarChart({ result }: { result: StepResult }) {
+  const max = Math.max(...result.options.map(o => o.count), 1)
+  return (
+    <div className="space-y-3">
+      {result.options.map((opt, i) => (
+        <div key={i}>
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="flex items-center gap-1.5 text-gray-600 truncate max-w-[65%]">
+              <span className="font-mono font-bold text-gray-400">{String.fromCharCode(65 + i)}</span>
+              {opt.option}
+              {opt.is_correct && <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold border border-emerald-200">✓ correct</span>}
+            </span>
+            <span className="text-gray-500 font-semibold flex-shrink-0 ml-2">{opt.count} · {opt.pct}%</span>
+          </div>
+          <div className="h-7 bg-gray-100 rounded-lg overflow-hidden">
+            <div
+              className={clsx('h-full rounded-lg transition-all duration-700 ease-out',
+                opt.is_correct ? 'bg-emerald-400' : 'bg-brand-400'
+              )}
+              style={{ width: `${Math.round((opt.count / max) * 100)}%`, minWidth: opt.count > 0 ? '2rem' : '0' }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function ResultsCard({ result, highlight }: { result: StepResult; highlight?: boolean }) {
+  return (
+    <div className={clsx('bg-white border rounded-2xl p-5 shadow-card transition-all',
+      highlight ? 'border-brand-300 ring-2 ring-brand-100' : 'border-gray-150'
+    )}>
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1 min-w-0 mr-4">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className={clsx('badge', result.type === 'quiz' ? 'badge-quiz' : 'badge-poll')}>
+              {result.type === 'quiz' ? 'Quiz' : 'Poll'}
+            </span>
+            {highlight && (
+              <span className="text-xs text-brand-600 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse inline-block" /> Current
+              </span>
+            )}
+          </div>
+          <p className="text-sm font-semibold text-gray-800 truncate">{result.question}</p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-2xl font-bold text-gray-900">{result.total_responses}</p>
+          <p className="text-xs text-gray-400">responses</p>
+        </div>
+      </div>
+      <LiveBarChart result={result} />
+      {result.type === 'quiz' && result.accuracy !== undefined && (
+        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+          <span className="text-xs text-gray-500 font-medium">Class accuracy</span>
+          <span className={clsx('text-sm font-bold',
+            result.accuracy >= 70 ? 'text-emerald-600' :
+            result.accuracy >= 40 ? 'text-amber-600' : 'text-red-500'
+          )}>{result.accuracy}%</span>
+        </div>
+      )}
+    </div>
+  )
+}
