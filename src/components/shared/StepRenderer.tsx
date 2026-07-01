@@ -21,7 +21,7 @@ export function StepRenderer({ step, stepNumber, totalSteps, mode, myAnswer, onA
           <ul className="space-y-3">
             {step.talking_points.map((pt, i) => (
               <li key={i} className="flex gap-3 text-sm text-gray-600">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-400 flex-shrink-0 mt-2" />
+                <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-gradient-to-r from-brand-500 to-violet-500" />
                 {pt}
               </li>
             ))}
@@ -85,7 +85,7 @@ export function StepRenderer({ step, stepNumber, totalSteps, mode, myAnswer, onA
       {mode === 'host' && isQuiz && (
         <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
           Correct: <span className="font-semibold text-emerald-600">{step.options?.[step.correct_answer ?? 0]}</span>
-          {step.explanation && <span className="ml-2 text-gray-400">— {step.explanation}</span>}
+          {step.explanation && <span className="ml-2 text-gray-400">Reason: {step.explanation}</span>}
         </div>
       )}
     </div>

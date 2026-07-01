@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Loader2, ArrowLeft, Radio, Copy, Check } from 'lucide-react'
 import { Logo } from '@/components/ui'
@@ -15,9 +15,12 @@ export default function HostSetup() {
   const [launching, setLaunching] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const startedRef = useRef(false)
+  const contentType = workshop?.content.metadata?.mode || 'webinar'
 
   useEffect(() => {
-    if (!workshopId) return
+    if (!workshopId || startedRef.current) return
+    startedRef.current = true
     api.startSession(workshopId, hostId)
       .then(s => { setLocalSession(s as Session); setLoading(false) })
       .catch(e => { setError(e instanceof Error ? e.message : 'Failed'); setLoading(false) })
@@ -44,8 +47,8 @@ export default function HostSetup() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <nav className="bg-white border-b border-gray-150 shadow-sm px-6 py-4 flex items-center justify-between">
+    <div className="app-shell min-h-screen flex flex-col">
+      <nav className="glass-panel border-x-0 border-t-0 shadow-sm px-6 py-4 flex items-center justify-between">
         <Logo />
         <button onClick={() => nav('/host/create')} className="btn-ghost text-sm"><ArrowLeft className="w-4 h-4" /> Back</button>
       </nav>
@@ -56,14 +59,14 @@ export default function HostSetup() {
           <div className="text-center max-w-sm"><p className="text-red-600 text-sm mb-4">{error}</p><button onClick={() => nav('/host/create')} className="btn-secondary">Go back</button></div>
         ) : session && (
           <div className="max-w-md w-full animate-slide-up">
-            <div className="bg-white border border-gray-150 rounded-3xl shadow-card-lg p-8 text-center">
+            <div className="glass-panel p-8 text-center">
               <div className="w-16 h-16 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center mx-auto mb-5">
                 <Radio className="w-8 h-8 text-brand-500" />
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-1">Ready to go live</h1>
               <p className="text-sm text-gray-500 mb-8">Share this code with your attendees before you start.</p>
 
-              <div className="bg-brand-50 border-2 border-brand-200 rounded-2xl p-6 mb-5">
+              <div className="bg-brand-50/80 border border-brand-200 rounded-3xl p-6 mb-5">
                 <p className="text-xs font-bold text-brand-600 uppercase tracking-widest mb-3">Room code</p>
                 <div className="font-mono text-4xl font-bold tracking-[0.35em] text-brand-700 mb-3">{session.room_code}</div>
                 <button onClick={copy} className="btn-ghost text-sm mx-auto">
@@ -72,10 +75,10 @@ export default function HostSetup() {
               </div>
 
               {workshop && (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 text-left">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Workshop</p>
+                <div className="bg-white/70 border border-slate-200/80 rounded-2xl p-4 mb-6 text-left backdrop-blur-xl">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">{contentType}</p>
                   <p className="text-sm font-semibold text-gray-800">{workshop.content.title}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{workshop.content.steps.length} steps · {workshop.content.estimated_duration_minutes} min</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{workshop.content.steps.length} steps, {workshop.content.estimated_duration_minutes} min</p>
                 </div>
               )}
 

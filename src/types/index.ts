@@ -1,4 +1,14 @@
 export type StepType = 'slide' | 'poll' | 'quiz'
+export type UserRole = 'host' | 'attendee'
+export type CreationMode = 'webinar' | 'workshop'
+
+export interface AuthUser {
+  id: string
+  email: string
+  role: UserRole
+  display_name?: string
+  created_at?: string
+}
 
 export interface WorkshopStep {
   index: number
@@ -15,6 +25,18 @@ export interface WorkshopContent {
   title: string
   estimated_duration_minutes: number
   steps: WorkshopStep[]
+  metadata?: {
+    mode?: CreationMode
+    project_name?: string
+    client_name?: string
+    project_description?: string
+    business_domain?: string
+    workshop_type?: string
+    objective?: string
+    agenda?: string[]
+    discussion_topics?: string[]
+    reference_document_name?: string
+  }
 }
 
 export interface Workshop {
@@ -84,4 +106,61 @@ export interface Dashboard {
   total_responses: number
   overall_accuracy?: number
   step_results: StepResult[]
+}
+
+export interface HostDashboardSession {
+  id: string
+  room_code: string
+  status: 'waiting' | 'live' | 'ended'
+  started_at?: string
+  ended_at?: string
+  current_step_index: number
+  workshop_id: string
+  mode?: CreationMode
+  topic: string
+  title: string
+  steps: number
+  participant_count: number
+  response_count: number
+  accuracy?: number
+}
+
+export interface HostDashboard {
+  totals: {
+    sessions: number
+    live_sessions: number
+    attendees: number
+    responses: number
+    average_accuracy?: number
+  }
+  sessions: HostDashboardSession[]
+}
+
+export interface AttendeeDashboardSession {
+  session_id: string
+  participant_id: string
+  room_code: string
+  status: 'waiting' | 'live' | 'ended'
+  joined_at: string
+  current_step_index: number
+  mode?: CreationMode
+  topic: string
+  title: string
+  steps: number
+  answers: number
+  quiz_correct: number
+  quiz_total: number
+  accuracy?: number
+}
+
+export interface AttendeeDashboard {
+  totals: {
+    sessions: number
+    live_sessions: number
+    answers: number
+    quiz_correct: number
+    quiz_total: number
+    average_accuracy?: number
+  }
+  sessions: AttendeeDashboardSession[]
 }

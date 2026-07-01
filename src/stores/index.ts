@@ -1,6 +1,25 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Workshop, Session, WorkshopStep } from '@/types'
+import type { AuthUser, Workshop, Session, WorkshopStep } from '@/types'
+
+interface AuthStore {
+  user: AuthUser | null
+  token: string | null
+  setAuth: (user: AuthUser, token: string) => void
+  logout: () => void
+}
+
+export const useAuthStore = create<AuthStore>()(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      setAuth: (user, token) => set({ user, token }),
+      logout: () => set({ user: null, token: null }),
+    }),
+    { name: 'intellimeet-auth' }
+  )
+)
 
 interface HostStore {
   workshop: Workshop | null
@@ -63,7 +82,7 @@ export const useHostStore = create<HostStore>()(
       resetHost: () =>
         set({ workshop: null, session: null, currentStep: 0, responses: {}, participantCount: 0 }),
     }),
-    { name: 'pulseclass-host', partialize: (s) => ({ hostId: s.hostId }) }
+    { name: 'intellimeet-host', partialize: (s) => ({ hostId: s.hostId }) }
   )
 )
 

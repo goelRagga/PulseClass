@@ -1,8 +1,23 @@
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+function getStoredToken() {
+  try {
+    const raw = localStorage.getItem('intellimeet-auth')
+    if (!raw) return null
+    return JSON.parse(raw)?.state?.token || null
+  } catch {
+    return null
+  }
+}
+
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {
+  const token = getStoredToken()
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...opts?.headers,
+    },
     ...opts,
   })
   if (!res.ok) {
@@ -13,14 +28,40 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // Auth
+  signup: (body: {
+    email: string; password: string; role: 'host' | 'attendee'; display_name?: string
+  }) => req('/auth/signup', { method: 'POST', body: JSON.stringify(body) }),
+
+  login: (body: {
+    email: string; password: string; role: 'host' | 'attendee'
+  }) => req('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
+
+  me: () => req('/auth/me'),
+
   // Workshops
   generateWorkshop: (body: {
-    topic: string; duration: number; level: string; tone: string; host_id?: string
+    topic: string
+    duration: number
+    level: string
+    tone: string
+    host_id?: string
+    mode?: 'webinar' | 'workshop'
+    project_name?: string
+    client_name?: string
+    project_description?: string
+    business_domain?: string
+    workshop_type?: string
+    objective?: string
+    agenda?: string[]
+    discussion_topics?: string[]
+    reference_document_name?: string
+    reference_document_content?: string
   }) => req('/workshops/generate', { method: 'POST', body: JSON.stringify(body) }),
 
   getWorkshop: (id: string) => req(`/workshops/${id}`),
 
-  listWorkshops: (hostId: string) => req(`/workshops/host/${hostId}`),
+  listWorkshops: (_hostId?: string) => req('/workshops/host/me'),
 
   updateWorkshop: (id: string, content: unknown) =>
     req(`/workshops/${id}`, { method: 'PUT', body: JSON.stringify(content) }),
@@ -49,6 +90,10 @@ export const api = {
   }) => req(`/sessions/${sessionId}/answer`, { method: 'POST', body: JSON.stringify(body) }),
 
   getDashboard: (sessionId: string) => req(`/sessions/${sessionId}/dashboard`),
+
+  getHostDashboard: () => req('/sessions/host/dashboard'),
+
+  getAttendeeDashboard: () => req('/sessions/attendee/dashboard'),
 
   getSessionByCode: (code: string) => req(`/sessions/code/${code}`),
 

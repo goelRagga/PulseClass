@@ -15,10 +15,10 @@ export function LiveBarChart({ result }: { result: StepResult }) {
             </span>
             <span className="text-gray-500 font-semibold flex-shrink-0 ml-2">{opt.count} · {opt.pct}%</span>
           </div>
-          <div className="h-7 bg-gray-100 rounded-lg overflow-hidden">
+          <div className="h-7 bg-slate-100/90 rounded-2xl overflow-hidden ring-1 ring-slate-200/80">
             <div
-              className={clsx('h-full rounded-lg transition-all duration-700 ease-out',
-                opt.is_correct ? 'bg-emerald-400' : 'bg-brand-400'
+              className={clsx('h-full rounded-2xl transition-all duration-700 ease-out',
+                opt.is_correct ? 'bg-gradient-to-r from-emerald-400 to-emerald-500' : 'bg-gradient-to-r from-brand-500 via-indigo-500 to-violet-500'
               )}
               style={{ width: `${Math.round((opt.count / max) * 100)}%`, minWidth: opt.count > 0 ? '2rem' : '0' }}
             />
@@ -31,8 +31,8 @@ export function LiveBarChart({ result }: { result: StepResult }) {
 
 export function ResultsCard({ result, highlight }: { result: StepResult; highlight?: boolean }) {
   return (
-    <div className={clsx('bg-white border rounded-2xl p-5 shadow-card transition-all',
-      highlight ? 'border-brand-300 ring-2 ring-brand-100' : 'border-gray-150'
+    <div className={clsx('card p-5 transition-all',
+      highlight ? 'border-brand-300 ring-4 ring-brand-100/70' : 'border-slate-200/80'
     )}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 min-w-0 mr-4">

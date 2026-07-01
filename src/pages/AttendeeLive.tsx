@@ -41,14 +41,14 @@ function SlideView({ step }: { step: WorkshopStep }) {
   return (
     <div className="animate-slide-up">
       <div className="text-center mb-6">
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600 text-xs font-semibold mb-4">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" /> Now presenting
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-semibold mb-4">
+          <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" /> Now presenting
         </span>
         <h2 className="text-2xl font-bold text-gray-900 leading-tight">{step.title}</h2>
       </div>
       <div className="space-y-3">
         {(step.talking_points || []).map((pt, i) => (
-          <div key={i} className="flex gap-3 p-4 bg-white border border-gray-150 rounded-xl shadow-card animate-slide-up"
+          <div key={i} className="flex gap-3 p-4 bg-white/85 border border-slate-200/80 rounded-2xl shadow-sm backdrop-blur-xl animate-slide-up"
             style={{ animationDelay: `${i * 60}ms` }}>
             <div className="w-6 h-6 rounded-lg bg-brand-50 border border-brand-200 flex items-center justify-center flex-shrink-0 mt-0.5">
               <span className="text-xs font-bold text-brand-600">{i + 1}</span>
@@ -71,12 +71,12 @@ function InteractionView({ step, myAnswer, onAnswer }: {
 
   return (
     <div className="animate-slide-up">
-      <div className={clsx('p-4 rounded-xl border-2 mb-5',
-        isPoll ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'
+      <div className={clsx('p-4 rounded-3xl border mb-5 shadow-sm',
+        isPoll ? 'bg-indigo-50/80 border-indigo-200/80' : 'bg-violet-50/80 border-violet-200/80'
       )}>
         <div className="flex items-center gap-2 mb-2">
           <span className={clsx('badge', isPoll ? 'badge-poll' : 'badge-quiz')}>
-            {isPoll ? '📊 Poll' : '❓ Quiz'}
+            {isPoll ? 'Poll' : 'Quiz'}
           </span>
           {isQuiz && !hasAnswered && <span className="text-xs text-gray-500">Pick the correct answer</span>}
         </div>
@@ -113,10 +113,10 @@ function InteractionView({ step, myAnswer, onAnswer }: {
           )}
           {isPoll && (
             <p className="text-center text-sm text-gray-400 py-3">
-              Response recorded ✓ — waiting for host to advance
+              Response recorded. Waiting for host to advance.
             </p>
           )}
-          {isQuiz && <p className="text-center text-xs text-gray-400 mt-2">Waiting for host to advance…</p>}
+          {isQuiz && <p className="text-center text-xs text-gray-400 mt-2">Waiting for host to advance.</p>}
         </div>
       )}
     </div>
@@ -177,13 +177,13 @@ export default function AttendeeLive() {
     const isCorrect = step?.type === 'quiz' ? optionIdx === step.correct_answer : undefined
     submitAnswer(currentStep, optionIdx)
     const evId = eventIdRef.current
-    console.log('[PulseClass] answer submit', { evId, optionIdx })
+    console.log('[IntelliMeet] answer submit', { evId, optionIdx })
     if (evId) {
       try {
         await api.submitAnswer(sessionId, { event_id: evId, participant_id: participantId, answer: String(optionIdx), is_correct: isCorrect })
-      } catch (e) { console.error('[PulseClass] submit failed:', e) }
+      } catch (e) { console.error('[IntelliMeet] submit failed:', e) }
     } else {
-      console.warn('[PulseClass] no event_id — host must click Next first')
+      console.warn('[IntelliMeet] no event_id. Host must click Next first')
     }
   }
 
@@ -196,19 +196,19 @@ export default function AttendeeLive() {
   if (ended) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="text-center max-w-sm bg-white rounded-3xl shadow-card-lg border border-gray-150 p-10 animate-scale-in">
+        <div className="text-center max-w-sm glass-panel p-10 animate-scale-in">
           <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="w-8 h-8 text-emerald-500" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">All done! 🎉</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-1">Session complete</h2>
           <p className="text-sm text-gray-500 mb-7">Great work participating.</p>
           <div className="grid grid-cols-3 gap-3 mb-7">
             {[
               { label: 'Answered', value: Object.keys(myAnswers).length },
               { label: 'Score', value: `${correctCount}/${quizSteps.length}` },
-              { label: 'Accuracy', value: quizSteps.length > 0 ? `${Math.round(correctCount / quizSteps.length * 100)}%` : '—' },
+              { label: 'Accuracy', value: quizSteps.length > 0 ? `${Math.round(correctCount / quizSteps.length * 100)}%` : '-' },
             ].map(s => (
-              <div key={s.label} className="bg-gray-50 border border-gray-150 rounded-xl p-3 text-center">
+              <div key={s.label} className="bg-white/80 border border-slate-200/80 rounded-2xl p-3 text-center backdrop-blur-xl">
                 <p className="text-xl font-bold text-gray-900">{s.value}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{s.label}</p>
               </div>
@@ -221,9 +221,9 @@ export default function AttendeeLive() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col max-w-lg mx-auto">
+    <div className="app-shell min-h-screen bg-gray-50 flex flex-col max-w-lg mx-auto">
       {/* Top bar */}
-      <div className="bg-white border-b border-gray-150 shadow-sm sticky top-0 z-40 px-4 py-3 flex items-center justify-between">
+      <div className="glass-panel border-t-0 border-x-0 border-b border-slate-200/70 shadow-sm sticky top-0 z-40 px-4 py-3 flex items-center justify-between">
         <Logo size="sm" />
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-lg">
@@ -234,7 +234,7 @@ export default function AttendeeLive() {
       </div>
 
       {/* Progress */}
-      <div className="bg-white border-b border-gray-100 px-4 py-3">
+      <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/70 px-4 py-3">
         <ProgressBar value={currentStep} max={steps.length} />
         <div className="flex justify-between mt-1.5">
           <p className="text-xs font-medium text-gray-400">Step {currentStep + 1} of {steps.length}</p>
@@ -245,12 +245,12 @@ export default function AttendeeLive() {
       {/* Content */}
       <div className="flex-1 px-4 py-5">
         {!currentStepData ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center mb-3">
-              <Loader2 className="w-6 h-6 text-brand-500 animate-spin" />
-            </div>
-            <p className="text-sm text-gray-500">Waiting for host to start…</p>
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center mb-3">
+            <Loader2 className="w-6 h-6 text-brand-500 animate-spin" />
           </div>
+          <p className="text-sm text-gray-500">Waiting for host to start…</p>
+        </div>
         ) : currentStepData.type === 'slide'
           ? <SlideView step={currentStepData} />
           : <InteractionView step={currentStepData} myAnswer={myAnswer} onAnswer={handleAnswer} />
@@ -258,7 +258,7 @@ export default function AttendeeLive() {
       </div>
 
       {/* Bottom */}
-      <div className="bg-white border-t border-gray-100 py-3 flex items-center justify-center gap-2">
+      <div className="bg-white/80 backdrop-blur-xl border-t border-slate-200/70 py-3 flex items-center justify-center gap-2">
         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
         <p className="text-xs text-gray-400">Synced with host · auto-updating</p>
       </div>
