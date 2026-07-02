@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, BookOpen, Clock, LogOut, Plus, Radio, RefreshCw, TrendingUp, Users } from 'lucide-react'
+import { BarChart3, BookOpen, Clock, LogOut, Plus, Radio, RefreshCw, Sparkles, TrendingUp, Users } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Badge, EmptyState, Logo, StatCard } from '@/components/ui'
 import { api } from '@/lib/api'
@@ -18,31 +18,39 @@ function SessionRow({ item, onLaunch, onResume }: {
   onResume: () => void
 }) {
   const pct = item.steps > 0 ? Math.round((item.current_step_index / Math.max(item.steps - 1, 1)) * 100) : 0
+  const isLive = item.status !== 'ended'
   return (
-    <div className="card p-4">
-      <div className="flex items-start gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+    <div className={clsx(
+      'group relative overflow-hidden rounded-3xl border p-5 backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5',
+      isLive
+        ? 'border-indigo-200/70 bg-gradient-to-br from-white via-white to-indigo-50/40 shadow-md shadow-indigo-500/5 hover:shadow-xl hover:shadow-indigo-500/15'
+        : 'border-slate-200/70 bg-white/80 shadow-sm hover:shadow-lg hover:shadow-slate-500/10 hover:border-slate-300'
+    )}>
+      {isLive && <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-indigo-500 via-violet-500 to-fuchsia-500" />}
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             <Badge variant={item.status === 'ended' ? 'default' : 'live'}>{item.status}</Badge>
             <Badge variant={item.mode === 'workshop' ? 'success' : 'slide'}>{item.mode || 'webinar'}</Badge>
-            <span className="font-mono text-xs text-gray-400">{item.room_code}</span>
+            <span className="font-mono text-xs text-slate-400 tracking-wide">{item.room_code}</span>
           </div>
-          <h3 className="font-bold text-gray-900 truncate">{item.title}</h3>
-          <p className="text-xs text-gray-400 mt-1">{timeLabel(item.started_at)} · {item.steps} steps</p>
+          <h3 className="font-bold text-slate-900 truncate">{item.title}</h3>
+          <p className="text-xs text-slate-400 mt-1">{timeLabel(item.started_at)} · {item.steps} steps</p>
         </div>
-        <div className="grid grid-cols-3 gap-3 text-right flex-shrink-0">
-          <div><p className="text-lg font-bold text-gray-900">{item.participant_count}</p><p className="text-xs text-gray-400">attendees</p></div>
-          <div><p className="text-lg font-bold text-gray-900">{item.response_count}</p><p className="text-xs text-gray-400">answers</p></div>
-          <div><p className="text-lg font-bold text-gray-900">{item.accuracy ?? '-'}{item.accuracy !== undefined && '%'}</p><p className="text-xs text-gray-400">accuracy</p></div>
+        <div className="grid grid-cols-3 gap-4 sm:text-right shrink-0">
+          <div><p className="text-lg font-bold text-slate-900">{item.participant_count}</p><p className="text-[11px] uppercase tracking-wider text-slate-400 mt-0.5">attendees</p></div>
+          <div><p className="text-lg font-bold text-slate-900">{item.response_count}</p><p className="text-[11px] uppercase tracking-wider text-slate-400 mt-0.5">answers</p></div>
+          <div><p className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">{item.accuracy ?? '-'}{item.accuracy !== undefined && '%'}</p><p className="text-[11px] uppercase tracking-wider text-slate-400 mt-0.5">accuracy</p></div>
         </div>
       </div>
       <div className="mt-4 flex items-center gap-3">
-        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-          <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className={clsx('h-full rounded-full transition-all duration-700 ease-out', isLive ? 'bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500' : 'bg-slate-400')} style={{ width: `${pct}%` }} />
         </div>
+        <span className="text-[11px] font-semibold text-slate-500 tabular-nums shrink-0">{pct}%</span>
         {item.status === 'ended'
-          ? <button onClick={onLaunch} className="btn-secondary btn-sm"><Radio className="w-3.5 h-3.5" /> Run again</button>
-          : <button onClick={onResume} className="btn-primary btn-sm"><Radio className="w-3.5 h-3.5" /> Open live</button>
+          ? <button onClick={onLaunch} className="btn-secondary btn-sm shrink-0"><Radio className="w-3.5 h-3.5" /> Run again</button>
+          : <button onClick={onResume} className="btn-primary btn-sm shrink-0 shadow-md shadow-indigo-500/25"><Radio className="w-3.5 h-3.5" /> Open live</button>
         }
       </div>
     </div>
@@ -96,31 +104,43 @@ export default function HostDashboard() {
   const ended = sessions.filter(s => s.status === 'ended')
 
   return (
-    <div className="app-shell min-h-screen">
-      <nav className="glass-panel border-x-0 border-t-0 shadow-sm sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-          <Logo />
-          <div className="flex items-center gap-2">
-            <button onClick={() => nav('/host/create')} className="btn-primary btn-sm"><Plus className="w-4 h-4" /> New session</button>
+    <div className="relative min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 overflow-hidden">
+      {/* ambient background */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 -left-40 w-[520px] h-[520px] rounded-full bg-gradient-to-br from-indigo-400/20 to-violet-500/10 blur-3xl" />
+        <div className="absolute -top-20 -right-40 w-[520px] h-[520px] rounded-full bg-gradient-to-tr from-fuchsia-400/15 to-sky-400/10 blur-3xl" />
+      </div>
+
+      <nav className="relative z-20 sticky top-0 border-b border-white/60 bg-white/70 backdrop-blur-2xl shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+          <div className="min-w-0"><Logo /></div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => nav('/host/create')} className="btn-primary btn-sm shadow-md shadow-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/40 transition-all"><Plus className="w-4 h-4" /> New session</button>
             <button onClick={load} className="btn-secondary btn-sm"><RefreshCw className="w-4 h-4" /> Refresh</button>
             <button onClick={signOut} className="btn-ghost text-sm"><LogOut className="w-4 h-4" /> Logout</button>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 py-6">
-        <div className="flex items-end justify-between gap-4 mb-6">
-          <div>
-            <p className="text-xs font-bold text-brand-600 uppercase tracking-wide">Host dashboard</p>
-            <h1 className="text-3xl font-bold text-gray-900 mt-1">Session operations</h1>
-            <p className="text-sm text-gray-500 mt-1">{user?.display_name || user?.email}</p>
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] items-end gap-4 mb-8 animate-fade-in">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/60 bg-white/70 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-indigo-600 backdrop-blur-xl shadow-sm">
+              <Sparkles className="w-3 h-3" /> Host workspace
+            </div>
+            <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 bg-clip-text text-transparent">
+              Session operations
+            </h1>
+            <p className="text-sm text-slate-500 mt-2 truncate">{user?.display_name || user?.email}</p>
           </div>
-          <button onClick={() => nav('/host/workshops')} className="btn-secondary"><BookOpen className="w-4 h-4" /> Session library</button>
+          <button onClick={() => nav('/host/workshops')} className="btn-secondary shrink-0"><BookOpen className="w-4 h-4" /> Session library</button>
         </div>
 
-        {error && <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>}
+        {error && (
+          <div className="mb-5 rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-600 backdrop-blur animate-fade-in">{error}</div>
+        )}
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4 mb-8 animate-fade-in">
           <StatCard label="Sessions" value={totals?.sessions ?? 0} icon={Radio} />
           <StatCard label="Live now" value={totals?.live_sessions ?? 0} icon={Clock} color={(totals?.live_sessions || 0) > 0 ? 'text-red-600' : undefined} />
           <StatCard label="Attendees" value={totals?.attendees ?? 0} icon={Users} />
@@ -129,17 +149,17 @@ export default function HostDashboard() {
         </div>
 
         {loading ? (
-          <div className="grid gap-3">{[1, 2, 3].map(i => <div key={i} className="h-32 card animate-pulse" />)}</div>
+          <div className="grid gap-3">{[1, 2, 3].map(i => <div key={i} className="h-32 rounded-3xl bg-gradient-to-br from-white to-slate-50 border border-slate-200/70 animate-pulse" />)}</div>
         ) : sessions.length === 0 ? (
-          <div className="card">
+          <div className="rounded-3xl border border-white/60 bg-white/70 p-2 backdrop-blur-xl shadow-[0_10px_40px_-20px_rgba(79,70,229,0.2)]">
             <EmptyState icon={BookOpen} title="No sessions yet" description="Create a webinar or workshop session, launch a room, and analytics will appear here." />
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide">Recent sessions</h2>
-                <span className="text-xs text-gray-400">{sessions.length} total</span>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 animate-fade-in">
+            <section className="min-w-0">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.14em]">Recent sessions</h2>
+                <span className="text-xs text-slate-400">{sessions.length} total</span>
               </div>
               <div className="space-y-3">
                 {[...live, ...ended].map(item => (
@@ -154,23 +174,32 @@ export default function HostDashboard() {
             </section>
 
             <aside className="space-y-4">
-              <div className="card p-5">
-                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4">Response health</h2>
-                <div className="space-y-4">
-                  {sessions.slice(0, 5).map(s => {
-                    const max = Math.max(...sessions.map(x => x.response_count), 1)
-                    return (
-                      <div key={s.id}>
-                        <div className="flex justify-between gap-3 text-xs mb-1">
-                          <span className="text-gray-600 truncate">{s.topic}</span>
-                          <span className="font-semibold text-gray-500">{s.response_count}</span>
+              <div className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-6 backdrop-blur-2xl shadow-[0_10px_40px_-20px_rgba(79,70,229,0.25)]">
+                <div className="pointer-events-none absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br from-indigo-400/25 to-violet-500/10 blur-2xl" />
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/30">
+                      <TrendingUp className="w-4 h-4 text-white" />
+                    </div>
+                    <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.14em]">Response health</h2>
+                  </div>
+                  <div className="space-y-4">
+                    {sessions.slice(0, 5).map(s => {
+                      const max = Math.max(...sessions.map(x => x.response_count), 1)
+                      const w = Math.round((s.response_count / max) * 100)
+                      return (
+                        <div key={s.id}>
+                          <div className="flex justify-between gap-3 text-xs mb-1.5">
+                            <span className="text-slate-600 truncate min-w-0">{s.topic}</span>
+                            <span className="font-semibold text-slate-500 tabular-nums shrink-0">{s.response_count}</span>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={clsx('h-full rounded-full transition-all duration-700 ease-out', s.status === 'ended' ? 'bg-slate-400' : 'bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500')} style={{ width: `${w}%` }} />
+                          </div>
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={clsx('h-full rounded-full', s.status === 'ended' ? 'bg-gray-400' : 'bg-brand-500')} style={{ width: `${Math.round((s.response_count / max) * 100)}%` }} />
-                        </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             </aside>
