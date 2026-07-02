@@ -1,27 +1,34 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
+  BarChart3,
+  BookOpen,
   Briefcase,
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   FileText,
-  Layers,
+  LayoutDashboard,
   Loader2,
   Plus,
   Radio,
+  RefreshCw,
   Save,
+  Settings,
+  Smartphone,
   Sparkles,
   Trash2,
   Upload,
-  Users,
 } from 'lucide-react'
 import { clsx } from 'clsx'
-import { Logo, Badge } from '@/components/ui'
+import { Logo } from '@/components/ui'
+import { HostHeader } from '@/components/host/HostHeader'
+import { Badge } from '@/components/ui'
 import { api } from '@/lib/api'
-import { useHostStore } from '@/stores'
+import { useAuthStore, useHostStore } from '@/stores'
 import type { CreationMode, Workshop, WorkshopStep } from '@/types'
 
 type Screen = 'chooser' | 'form' | 'generating' | 'editor'
@@ -38,68 +45,173 @@ const WORKSHOP_TYPES = [
   { value: 'risk', label: 'Risk' },
 ] as const
 
-function StepEditor({ step, idx, total, onChange, onDelete, onMove }: {
-  step: WorkshopStep
-  idx: number
-  total: number
-  onChange: (s: WorkshopStep) => void
-  onDelete: () => void
-  onMove: (d: -1 | 1) => void
-}) {
-  const [open, setOpen] = useState(idx === 0)
+// ── Step type colours ────────────────────────────────────────────────────────
+const STEP_STYLE = {
+  slide: { pill: 'bg-blue-100 text-blue-700', num: 'bg-[#e5eeff] text-[#4648d4]', ring: 'ring-[#4648d4]/20' },
+  poll:  { pill: 'bg-[#e9ddff] text-[#6b38d4]', num: 'bg-[#f0ebff] text-[#6b38d4]', ring: 'ring-[#6b38d4]/20' },
+  quiz:  { pill: 'bg-amber-50 text-amber-600', num: 'bg-amber-50 text-amber-600', ring: 'ring-amber-400/20' },
+}
+
+// ── Sidebar nav item (shared style with dashboard) ───────────────────────────
+function EditorNavItem({
+  label, icon: Icon, active, onClick,
+}: { label: string; icon: React.ElementType; active?: boolean; onClick: () => void }) {
   return (
-    <div className="group overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur-xl shadow-sm hover:shadow-md hover:border-indigo-200 transition-all">
-      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-slate-50/70" onClick={() => setOpen(o => !o)}>
-        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100 text-[11px] font-bold text-slate-500 shrink-0">{idx + 1}</span>
-        <Badge variant={step.type}>{step.type}</Badge>
-        <span className="text-sm text-slate-700 flex-1 truncate font-medium min-w-0">
-          {step.type === 'slide' ? step.title || 'Untitled' : step.question || 'Untitled'}
-        </span>
-        <div className="flex items-center gap-0.5 ml-auto shrink-0" onClick={e => e.stopPropagation()}>
-          <button onClick={() => onMove(-1)} disabled={idx === 0} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 text-slate-400 transition-colors"><ChevronUp className="w-3.5 h-3.5" /></button>
-          <button onClick={() => onMove(1)} disabled={idx === total - 1} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 text-slate-400 transition-colors"><ChevronDown className="w-3.5 h-3.5" /></button>
-          <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-          {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        'flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-all duration-200',
+        active ? 'bg-[#8455ef] text-white shadow-md' : 'text-slate-600 hover:bg-white/60 hover:text-slate-900',
+      )}
+    >
+      <Icon className={clsx('h-[18px] w-[18px] shrink-0', active ? 'text-white' : 'text-slate-400')} />
+      <span>{label}</span>
+    </button>
+  )
+}
+
+// ── Step editor card ──────────────────────────────────────────────────────────
+function StepEditor({
+  step, idx, total, onChange, onDelete, onMove,
+}: {
+  step: WorkshopStep; idx: number; total: number
+  onChange: (s: WorkshopStep) => void; onDelete: () => void; onMove: (d: -1 | 1) => void
+}) {
+  const style = STEP_STYLE[step.type]
+
+  return (
+    <div className="bg-white/70 backdrop-blur-xl border border-slate-200/80 rounded-2xl overflow-hidden shadow-[0_4px_6px_rgba(99,102,241,0.05)] transition-all hover:ring-2 hover:ring-[#4648d4]/15">
+      {/* Card header */}
+      <div className="flex items-center justify-between px-5 py-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={clsx('w-8 h-8 flex items-center justify-center rounded-full text-[12px] font-bold shrink-0', style.num)}>
+            {idx + 1}
+          </span>
+          <span className={clsx('px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider', style.pill)}>
+            {step.type}
+          </span>
+          <h3 className="text-[14px] font-semibold text-slate-800 truncate max-w-[260px]">
+            {step.type === 'slide' ? (step.title || 'Untitled slide') : (step.question || 'Untitled question')}
+          </h3>
+        </div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button onClick={() => onMove(-1)} disabled={idx === 0} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 text-slate-400 transition-colors">
+            <ChevronUp className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => onMove(1)} disabled={idx === total - 1} className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-30 text-slate-400 transition-colors">
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors ml-1">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
-      {open && (
-        <div className="px-4 pb-4 pt-3 border-t border-slate-100 space-y-3 bg-gradient-to-br from-slate-50/70 to-white animate-fade-in">
-          {step.type === 'slide' && (
-            <>
-              <div><label className="label">Title</label><input className="input" value={step.title || ''} onChange={e => onChange({ ...step, title: e.target.value })} /></div>
-              <div><label className="label">Talking points, one per line</label>
-                <textarea className="input" rows={4} value={(step.talking_points || []).join('\n')} onChange={e => onChange({ ...step, talking_points: e.target.value.split('\n') })} /></div>
-            </>
-          )}
-          {(step.type === 'poll' || step.type === 'quiz') && (
-            <>
-              <div><label className="label">Question</label><input className="input" value={step.question || ''} onChange={e => onChange({ ...step, question: e.target.value })} /></div>
-              <div><label className="label">Options {step.type === 'quiz' && <span className="text-slate-400 normal-case font-normal">(click circle = correct)</span>}</label>
-                <div className="space-y-2">
-                  {(step.options || []).map((opt, oi) => (
-                    <div key={oi} className="flex items-center gap-2">
-                      {step.type === 'quiz' && (
-                        <button onClick={() => onChange({ ...step, correct_answer: oi })}
-                          className={clsx('w-5 h-5 rounded-full border-2 flex-shrink-0 transition-all', step.correct_answer === oi ? 'border-emerald-500 bg-gradient-to-br from-emerald-400 to-teal-500 shadow-md shadow-emerald-500/30' : 'border-slate-300 hover:border-emerald-400')} />
-                      )}
-                      <input className="input" value={opt} onChange={e => { const o = [...(step.options || [])]; o[oi] = e.target.value; onChange({ ...step, options: o }) }} placeholder={`Option ${String.fromCharCode(65 + oi)}`} />
-                      <button onClick={() => onChange({ ...step, options: (step.options || []).filter((_, i) => i !== oi) })} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                    </div>
-                  ))}
-                  <button onClick={() => onChange({ ...step, options: [...(step.options || []), ''] })} className="btn-ghost text-xs py-1.5"><Plus className="w-3.5 h-3.5" /> Add option</button>
-                </div>
+
+      {/* Editing fields */}
+      <div className="px-5 pb-5 pt-1 border-t border-slate-100 space-y-4 bg-white/40">
+        {step.type === 'slide' && (
+          <>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Title</label>
+              <input
+                className="w-full bg-white border border-slate-200/80 rounded-lg px-4 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-[#4648d4]/20 focus:border-[#4648d4] outline-none transition-all"
+                value={step.title || ''}
+                onChange={e => onChange({ ...step, title: e.target.value })}
+                placeholder="Slide title"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Talking Points</label>
+              <textarea
+                className="w-full bg-white border border-slate-200/80 rounded-lg px-4 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-[#4648d4]/20 focus:border-[#4648d4] outline-none transition-all resize-none"
+                rows={3}
+                value={(step.talking_points || []).join('\n')}
+                onChange={e => onChange({ ...step, talking_points: e.target.value.split('\n') })}
+                placeholder="One point per line"
+              />
+            </div>
+          </>
+        )}
+
+        {(step.type === 'poll' || step.type === 'quiz') && (
+          <>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Question</label>
+              <input
+                className="w-full bg-white border border-slate-200/80 rounded-lg px-4 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-[#4648d4]/20 focus:border-[#4648d4] outline-none transition-all"
+                value={step.question || ''}
+                onChange={e => onChange({ ...step, question: e.target.value })}
+                placeholder="Enter your question"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+                Options{step.type === 'quiz' && <span className="normal-case font-normal text-slate-300 ml-1">(click circle = correct)</span>}
+              </label>
+              <div className="space-y-2">
+                {(step.options || []).map((opt, oi) => (
+                  <div key={oi} className="flex items-center gap-2">
+                    {step.type === 'quiz' && (
+                      <button
+                        onClick={() => onChange({ ...step, correct_answer: oi })}
+                        className={clsx(
+                          'w-5 h-5 rounded-full border-2 shrink-0 transition-all',
+                          step.correct_answer === oi
+                            ? 'border-emerald-500 bg-emerald-500 shadow-sm shadow-emerald-500/30'
+                            : 'border-slate-300 hover:border-emerald-400'
+                        )}
+                      />
+                    )}
+                    <input
+                      className="flex-1 bg-white border border-slate-200/80 rounded-lg px-4 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-[#4648d4]/20 focus:border-[#4648d4] outline-none transition-all"
+                      value={opt}
+                      onChange={e => {
+                        const o = [...(step.options || [])]
+                        o[oi] = e.target.value
+                        onChange({ ...step, options: o })
+                      }}
+                      placeholder={`Option ${String.fromCharCode(65 + oi)}`}
+                    />
+                    <button
+                      onClick={() => onChange({ ...step, options: (step.options || []).filter((_, i) => i !== oi) })}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => onChange({ ...step, options: [...(step.options || []), ''] })}
+                  className="flex items-center gap-1.5 text-[#4648d4] text-[12px] font-bold hover:underline underline-offset-2 mt-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add option
+                </button>
               </div>
-              {step.type === 'quiz' && <div><label className="label">Explanation</label><textarea className="input" rows={2} value={step.explanation || ''} onChange={e => onChange({ ...step, explanation: e.target.value })} /></div>}
-            </>
-          )}
-        </div>
-      )}
+            </div>
+            {step.type === 'quiz' && (
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Explanation</label>
+                <textarea
+                  className="w-full bg-white border border-slate-200/80 rounded-lg px-4 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-[#4648d4]/20 focus:border-[#4648d4] outline-none transition-all resize-none"
+                  rows={2}
+                  value={step.explanation || ''}
+                  onChange={e => onChange({ ...step, explanation: e.target.value })}
+                  placeholder="Explanation for the correct answer"
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 export default function HostCreate() {
   const nav = useNavigate()
+  const { user } = useAuthStore()
   const { setWorkshop, hostId } = useHostStore()
   const [screen, setScreen] = useState<Screen>('chooser')
   const [mode, setMode] = useState<CreationMode>('webinar')
@@ -108,6 +220,9 @@ export default function HostCreate() {
   const [saving, setSaving] = useState(false)
   const [workshop, setLocalWorkshop] = useState<Workshop | null>(null)
   const [steps, setSteps] = useState<WorkshopStep[]>([])
+  const [aiSuggestionsState, setAiSuggestionsState] = useState<{ id: string; color: 'primary' | 'secondary'; title: string; body: string; action: string }[]>([])
+  const [aiLoading, setAiLoading] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [webinarForm, setWebinarForm] = useState({
     topic: '',
     duration: 30,
@@ -131,9 +246,7 @@ export default function HostCreate() {
   })
 
   const chooseMode = (nextMode: CreationMode) => {
-    setMode(nextMode)
-    setError('')
-    setScreen('form')
+    setMode(nextMode); setError(''); setScreen('form')
   }
 
   const validateWorkshop = () => {
@@ -146,22 +259,13 @@ export default function HostCreate() {
 
   const readReferenceFile = async (file: File) => {
     const text = await file.text()
-    setWorkshopForm(f => ({
-      ...f,
-      reference_document_name: file.name,
-      reference_document_content: text.slice(0, 12000),
-    }))
+    setWorkshopForm(f => ({ ...f, reference_document_name: file.name, reference_document_content: text.slice(0, 12000) }))
   }
 
   const generate = async () => {
     setError('')
     const payload = mode === 'webinar'
-      ? {
-          ...webinarForm,
-          topic: webinarForm.topic.trim(),
-          mode,
-          host_id: hostId,
-        }
+      ? { ...webinarForm, topic: webinarForm.topic.trim(), mode, host_id: hostId }
       : {
           topic: workshopForm.objective.trim() || workshopForm.project_name.trim(),
           duration: workshopForm.duration,
@@ -182,10 +286,7 @@ export default function HostCreate() {
         }
 
     if (mode === 'webinar' && !webinarForm.topic.trim()) { setError('Enter a webinar goal first.'); return }
-    if (mode === 'workshop') {
-      const validation = validateWorkshop()
-      if (validation) { setError(validation); return }
-    }
+    if (mode === 'workshop') { const v = validateWorkshop(); if (v) { setError(v); return } }
 
     setScreen('generating')
     try {
@@ -211,8 +312,9 @@ export default function HostCreate() {
     const base = { index: steps.length, type }
     setSteps(s => [...s, type === 'slide'
       ? { ...base, title: 'New slide', talking_points: ['Point 1', 'Point 2'] }
-      : type === 'poll' ? { ...base, question: 'New poll question', options: ['Option A', 'Option B', 'Option C'] }
-      : { ...base, question: 'New quiz question', options: ['Option A', 'Option B', 'Option C', 'Option D'], correct_answer: 0, explanation: 'Explanation here' }
+      : type === 'poll'
+        ? { ...base, question: 'New poll question', options: ['Option A', 'Option B', 'Option C'] }
+        : { ...base, question: 'New quiz question', options: ['Option A', 'Option B', 'Option C', 'Option D'], correct_answer: 0, explanation: 'Explanation here' }
     ])
   }
 
@@ -230,8 +332,301 @@ export default function HostCreate() {
     }
   }
 
+  useEffect(() => {
+    if (screen !== 'editor' || !workshop || steps.length === 0) return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setAiLoading(true)
+      try {
+        const res = await api.suggestWorkshop(workshop.content.title, steps) as { suggestions: { title: string; body: string; action: string; color: string }[] }
+        setAiSuggestionsState(
+          (res.suggestions || []).map((s, i) => ({
+            id: `ai-${i}`,
+            color: (s.color === 'primary' || s.color === 'secondary') ? s.color : (i === 0 ? 'primary' : 'secondary'),
+            title: s.title,
+            body: s.body,
+            action: s.action,
+          }))
+        )
+      } catch {
+        // fall back to empty — static fallback below handles it
+      } finally {
+        setAiLoading(false)
+      }
+    }, 1200)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [screen, workshop?.id, steps.length])
+
   const currentLabel = mode === 'webinar' ? 'webinar' : 'workshop'
 
+  // ── Full-screen editor (early return) ──────────────────────────────────────
+  if (screen === 'editor' && workshop) {
+    const slideCount = steps.filter(s => s.type === 'slide').length
+    const pollCount = steps.filter(s => s.type === 'poll').length
+    const quizCount = steps.filter(s => s.type === 'quiz').length
+    const contentMode = workshop.content.metadata?.mode || mode
+    const duration = workshop.content.estimated_duration_minutes
+
+    const completedCount = steps.filter(s => {
+      if (s.type === 'slide') return !!(s.title?.trim()) && (s.talking_points?.some(tp => tp.trim()) ?? false)
+      return !!(s.question?.trim()) && ((s.options?.filter(o => o.trim()).length ?? 0) >= 2)
+    }).length
+    const completeness = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0
+
+    const aiSuggestions = aiSuggestionsState
+
+    const previewStep = steps[0]
+    const userName = user?.display_name || (user as any)?.name || 'Host'
+
+    return (
+      <div className="flex h-[100dvh] overflow-hidden bg-[#f8f9ff]">
+
+        {/* ── Left sidebar ── */}
+        <aside className="fixed inset-y-0 left-0 w-64 flex flex-col bg-white/70 backdrop-blur-xl border-r border-slate-200/80 py-6 px-4 z-50 shrink-0">
+          <div className="px-2 mb-8">
+            <Logo size="md" />
+            <p className="mt-1 text-[11px] font-medium text-slate-400 pl-[52px]">Host Admin</p>
+          </div>
+          <nav className="flex-1 space-y-1">
+            <EditorNavItem label="Dashboard"  icon={LayoutDashboard} onClick={() => nav('/host/dashboard')} />
+            <EditorNavItem label="Sessions Library"   icon={CalendarDays}    active onClick={() => nav('/host/workshops')} />
+            {/* <EditorNavItem label="Library"    icon={BookOpen}        onClick={() => nav('/host/workshops')} />
+            <EditorNavItem label="Analytics"  icon={BarChart3}       onClick={() => {}} />
+            <EditorNavItem label="Settings"   icon={Settings}        onClick={() => {}} /> */}
+          </nav>
+          <div className="mt-auto p-3.5 bg-white/60 rounded-xl border border-slate-200/50">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#4648d4] to-[#6b38d4] flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm">
+                {userName[0]?.toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-slate-900 truncate">{userName}</p>
+                <p className="text-[10px] text-slate-400">Host Admin</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* ── Content column ── */}
+        <div className="flex-1 ml-64 flex flex-col h-full overflow-hidden">
+
+          {/* Top nav */}
+          <header className="h-16 bg-white/70 backdrop-blur-xl border-b border-slate-200/80 flex items-center justify-between px-8 sticky top-0 z-40 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-[13px] text-slate-500">
+                <button onClick={() => nav('/host/dashboard')} className="hover:text-[#4648d4] transition-colors font-medium">
+                  Dashboard
+                </button>
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+                <span className="text-slate-900 font-semibold">New Session</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setScreen('form')}
+                className="flex items-center gap-2 px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-all text-[13px] font-medium active:scale-95"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={publish}
+                disabled={saving || steps.length === 0}
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#4648d4] to-[#6b38d4] text-white rounded-lg text-[13px] font-semibold shadow-[0_4px_14px_rgba(70,72,212,0.3)] hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saving ? 'Saving…' : 'Save & Publish'}
+              </button>
+            </div>
+          </header>
+
+          {/* Scrollable canvas */}
+          <main className="flex-1 overflow-y-auto px-8 py-8">
+            <div className="max-w-[1060px] mx-auto">
+
+              {/* Session header */}
+              <div className="flex items-end justify-between gap-4 mb-8">
+                <div>
+                  <span className="inline-block px-3 py-1 bg-[#6063ee] text-white text-[10px] font-bold rounded-full uppercase tracking-widest mb-3">
+                    {contentMode}
+                  </span>
+                  <h1 className="text-[36px] font-bold leading-tight tracking-tight text-slate-900">
+                    {workshop.content.title}
+                  </h1>
+                  <div className="flex items-center gap-5 mt-2 text-[13px] text-slate-500">
+                    <span className="flex items-center gap-1.5"><Radio className="h-4 w-4" />{duration} min</span>
+                    <span className="flex items-center gap-1.5"><ChevronRight className="h-4 w-4" />{steps.length} steps</span>
+                    {pollCount > 0 && <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[#6b38d4]" />{pollCount} polls</span>}
+                    {quizCount > 0 && <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{quizCount} quizzes</span>}
+                  </div>
+                </div>
+              </div>
+
+              {error && (
+                <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+              )}
+
+              {/* Bento grid */}
+              <div className="grid grid-cols-12 gap-6 items-start">
+
+                {/* Steps column — 8 cols */}
+                <div className="col-span-8 space-y-4">
+                  {steps.map((s, i) => (
+                    <StepEditor
+                      key={i}
+                      step={s}
+                      idx={i}
+                      total={steps.length}
+                      onChange={u => updateStep(i, u)}
+                      onDelete={() => deleteStep(i)}
+                      onMove={d => moveStep(i, d)}
+                    />
+                  ))}
+
+                  {/* Add step row */}
+                  <div className="flex items-center justify-center gap-3 py-7 border-2 border-dashed border-slate-200 rounded-2xl hover:border-[#4648d4]/40 transition-colors group">
+                    {(['slide', 'poll', 'quiz'] as const).map(type => (
+                      <button
+                        key={type}
+                        onClick={() => addStep(type)}
+                        className="flex items-center gap-2 px-4 py-2 bg-white shadow-sm border border-slate-200/80 rounded-full text-[12px] font-semibold text-slate-600 hover:shadow-md hover:border-[#4648d4]/30 hover:text-[#4648d4] transition-all active:scale-95"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add {type}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right panel — 4 cols */}
+                <div className="col-span-4 sticky top-0 flex flex-col gap-4 max-h-[calc(100dvh-4rem)] overflow-y-auto pb-8">
+
+                  {/* IntelliAssistant */}
+                  <div className="bg-white/70 overflow-auto backdrop-blur-xl border border-slate-200/80 rounded-2xl p-6 shadow-[0_4px_6px_rgba(99,102,241,0.05)] relative overflow-hidden">
+                    <div className="absolute -right-4 -top-4 opacity-[0.07] pointer-events-none">
+                      <Sparkles className="h-[90px] w-[90px] text-[#4648d4]" />
+                    </div>
+                    <div className="flex items-center gap-2.5 mb-5">
+                      <div className="p-1.5 bg-[#e1e0ff] rounded-lg">
+                        <Sparkles className="h-4 w-4 text-[#4648d4]" />
+                      </div>
+                      <h4 className="font-bold text-[15px] text-slate-900">IntelliAssistant</h4>
+                    </div>
+                    {aiLoading ? (
+                      <div className="flex items-center gap-2.5 py-3">
+                        <Loader2 className="h-4 w-4 animate-spin text-[#4648d4] shrink-0" />
+                        <p className="text-[13px] text-slate-400">Analyzing session…</p>
+                      </div>
+                    ) : aiSuggestions.length === 0 ? (
+                      <p className="text-[13px] text-slate-400 text-center py-3">Session looks great! No suggestions right now.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {aiSuggestions.map(s => (
+                          <div
+                            key={s.id}
+                            className={clsx(
+                              'p-3.5 rounded-xl border',
+                              s.color === 'primary'
+                                ? 'bg-[#4648d4]/5 border-[#4648d4]/10'
+                                : 'bg-[#6b38d4]/5 border-[#6b38d4]/10'
+                            )}
+                          >
+                            <p className="text-[13px] font-semibold text-slate-800 mb-1">{s.title}</p>
+                            <p className="text-[12px] text-slate-500 leading-relaxed">{s.body}</p>
+                            <button
+                              className={clsx(
+                                'mt-2.5 text-[11px] font-bold hover:underline underline-offset-2',
+                                s.color === 'primary' ? 'text-[#4648d4]' : 'text-[#6b38d4]'
+                              )}
+                            >
+                              {s.action}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Session Progress */}
+                  <div className="bg-white/70 backdrop-blur-xl border border-slate-200/80 rounded-2xl p-6 shadow-[0_4px_6px_rgba(99,102,241,0.05)]">
+                    <h4 className="font-bold text-[15px] text-slate-900 mb-5">Session Progress</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-[12px] font-semibold mb-1.5">
+                          <span className="text-slate-500">Completeness</span>
+                          <span className="text-slate-900">{completeness}%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#4648d4] to-[#6b38d4] transition-all duration-500"
+                            style={{ width: `${completeness}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div className="p-3 bg-[#eff4ff] rounded-xl text-center">
+                          <p className="text-[22px] font-bold text-[#4648d4] leading-none">{duration}</p>
+                          <p className="text-[10px] uppercase font-bold text-slate-400 mt-1">Minutes</p>
+                        </div>
+                        <div className="p-3 bg-[#f0ebff] rounded-xl text-center">
+                          <p className="text-[22px] font-bold text-[#6b38d4] leading-none">{String(steps.length).padStart(2, '0')}</p>
+                          <p className="text-[10px] uppercase font-bold text-slate-400 mt-1">Total Steps</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Preview */}
+                  <div className="rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-900 shadow-lg">
+                    <div className="px-4 py-3 bg-zinc-900 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="h-3.5 w-3.5 text-zinc-400" />
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Mobile Preview</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 rounded-full bg-zinc-700" />
+                        <div className="w-2 h-2 rounded-full bg-zinc-700" />
+                      </div>
+                    </div>
+                    <div className="h-48 bg-white m-2 rounded-xl overflow-hidden flex flex-col items-center justify-center p-5 text-center relative">
+                      {previewStep ? (
+                        <>
+                          <div className="mb-3">
+                            <span className={clsx('px-2 py-0.5 text-[10px] font-bold rounded uppercase', STEP_STYLE[previewStep.type].pill)}>
+                              {previewStep.type}
+                            </span>
+                          </div>
+                          <h5 className="text-[15px] font-bold text-slate-900 mb-2 leading-snug">
+                            {previewStep.type === 'slide' ? (previewStep.title || 'Slide') : (previewStep.question || 'Question')}
+                          </h5>
+                          <p className="text-[12px] text-slate-500 leading-relaxed">
+                            {previewStep.type === 'slide'
+                              ? previewStep.talking_points?.[0] || ''
+                              : previewStep.options?.[0] || ''
+                            }
+                          </p>
+                          <div className="absolute bottom-3 left-0 w-full px-4 flex justify-between items-center">
+                            <div className="h-0.5 w-10 bg-slate-200 rounded-full" />
+                            <span className="text-[10px] text-slate-400">1 / {steps.length}</span>
+                            <div className="h-0.5 w-10 bg-slate-200 rounded-full" />
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[13px] text-slate-400">No steps yet</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Non-editor screens (chooser / form / generating) ─────────────────────
   return (
     <div className="relative min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 overflow-hidden">
       {/* ambient background */}
@@ -240,15 +635,27 @@ export default function HostCreate() {
         <div className="absolute bottom-0 -left-40 w-[420px] h-[420px] rounded-full bg-gradient-to-tr from-fuchsia-400/15 to-sky-400/10 blur-3xl" />
       </div>
 
-      <nav className="relative z-20 sticky top-0 border-b border-white/60 bg-white/70 backdrop-blur-2xl shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
-          <div className="min-w-0"><Logo /></div>
+      <HostHeader
+        backTo={screen !== 'chooser' ? '/host/workshops' : '/host/dashboard'}
+        backLabel={screen !== 'chooser' ? 'Sessions' : 'Dashboard'}
+        breadcrumbs={[
+          { label: 'Host', to: '/host/dashboard' },
+          { label: 'Sessions', to: '/host/workshops' },
+          { label: screen === 'chooser' ? 'Create' : mode === 'webinar' ? 'Webinar' : 'Workshop' },
+        ]}
+        rightSlot={(
           <div className="flex items-center gap-2 shrink-0">
-            {screen !== 'chooser' && <button onClick={() => setScreen('chooser')} className="btn-ghost text-sm"><ChevronLeft className="w-4 h-4" /> Change session type</button>}
-            <button onClick={() => nav('/host/dashboard')} className="btn-ghost text-sm"><ArrowLeft className="w-4 h-4" /> Dashboard</button>
+            {screen !== 'chooser' && (
+              <button onClick={() => setScreen('chooser')} className="btn-ghost text-sm">
+                <ChevronLeft className="w-4 h-4" /> Change session type
+              </button>
+            )}
+            <button onClick={() => nav('/host/dashboard')} className="btn-ghost text-sm">
+              <ArrowLeft className="w-4 h-4" /> Dashboard
+            </button>
           </div>
-        </div>
-      </nav>
+        )}
+      />
 
       <div className="relative z-10 flex-1 px-4 sm:px-6 py-10">
         {screen === 'chooser' && (
@@ -257,7 +664,7 @@ export default function HostCreate() {
               <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/60 bg-white/70 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-indigo-600 backdrop-blur-xl shadow-sm">
                 <Sparkles className="w-3 h-3" /> New session
               </div>
-              <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 bg-clip-text text-transparent">
+              <h1 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
                 Choose the session type
               </h1>
               <p className="text-sm text-slate-500 mt-3 max-w-2xl leading-relaxed">
@@ -301,23 +708,27 @@ export default function HostCreate() {
               </div>
               {error && <div className="mb-4 rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-600 backdrop-blur">{error}</div>}
               <div className="space-y-5">
-                <div><label className="label">Webinar goal</label>
+                <div>
+                  <label className="label">Webinar goal</label>
                   <input className="input text-base" placeholder="e.g. Teach leaders how AI agents work"
                     value={webinarForm.topic} onChange={e => setWebinarForm(f => ({ ...f, topic: e.target.value }))} onKeyDown={e => e.key === 'Enter' && generate()} autoFocus />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="label">Duration</label>
+                  <div>
+                    <label className="label">Duration</label>
                     <select className="select" value={webinarForm.duration} onChange={e => setWebinarForm(f => ({ ...f, duration: Number(e.target.value) }))}>
                       {DURATIONS.map(d => <option key={d} value={d}>{d} minutes</option>)}
                     </select>
                   </div>
-                  <div><label className="label">Audience</label>
+                  <div>
+                    <label className="label">Audience</label>
                     <select className="select" value={webinarForm.level} onChange={e => setWebinarForm(f => ({ ...f, level: e.target.value as typeof LEVELS[number] }))}>
                       {LEVELS.map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
                     </select>
                   </div>
                 </div>
-                <div><label className="label">Tone</label>
+                <div>
+                  <label className="label">Tone</label>
                   <div className="grid grid-cols-3 gap-2">
                     {TONES.map(t => (
                       <button key={t} onClick={() => setWebinarForm(f => ({ ...f, tone: t }))}
@@ -389,7 +800,7 @@ export default function HostCreate() {
                 {workshopStep === 2 && (
                   <div className="space-y-4 animate-fade-in">
                     <div><label className="label">Agenda</label><textarea className="input font-mono text-xs" rows={6} value={workshopForm.agenda} onChange={e => setWorkshopForm(f => ({ ...f, agenda: e.target.value }))} placeholder="Intro (10 min)" /></div>
-                    <div><label className="label">Discussion topics</label><textarea className="input" rows={6} value={workshopForm.discussion_topics} onChange={e => setWorkshopForm(f => ({ ...f, discussion_topics: e.target.value }))} placeholder="One topic per line. e.g. Demand variability, supplier constraints, decision rights." /></div>
+                    <div><label className="label">Discussion topics</label><textarea className="input" rows={6} value={workshopForm.discussion_topics} onChange={e => setWorkshopForm(f => ({ ...f, discussion_topics: e.target.value }))} placeholder="One topic per line." /></div>
                   </div>
                 )}
 
@@ -402,7 +813,7 @@ export default function HostCreate() {
                           <Upload className="w-5 h-5 text-white" />
                         </div>
                         <span className="text-sm font-semibold text-slate-700">{workshopForm.reference_document_name || 'Upload a text reference file'}</span>
-                        <span className="text-xs text-slate-400">TXT, MD, CSV, or JSON works best. Content is used only for generation context.</span>
+                        <span className="text-xs text-slate-400">TXT, MD, CSV, or JSON works best.</span>
                         <input type="file" className="hidden" accept=".txt,.md,.csv,.json" onChange={e => { const file = e.target.files?.[0]; if (file) readReferenceFile(file) }} />
                       </label>
                     </div>
@@ -444,60 +855,13 @@ export default function HostCreate() {
                 <Sparkles className="w-10 h-10 text-white animate-pulse" />
               </div>
             </div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-900 to-indigo-900 bg-clip-text text-transparent mb-2">Building your {currentLabel}</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Building your {currentLabel}</h2>
             <p className="text-sm text-slate-500">Generating slides, polls, and quizzes</p>
             <p className="text-xs text-slate-400 mt-1">Usually 10 to 20 seconds</p>
             <div className="mt-8 flex items-center justify-center gap-2">
               {[0, 1, 2].map(i => (
                 <span key={i} className="h-2 w-2 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />
               ))}
-            </div>
-          </div>
-        )}
-
-        {screen === 'editor' && workshop && (
-          <div className="w-full max-w-3xl mx-auto animate-fade-in">
-            <div className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/70 p-6 backdrop-blur-2xl shadow-[0_20px_70px_-20px_rgba(79,70,229,0.2)] mb-5">
-              <div className="pointer-events-none absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br from-indigo-400/25 to-violet-500/10 blur-2xl" />
-              <div className="relative flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <Badge variant={workshop.content.metadata?.mode === 'workshop' ? 'success' : 'slide'}>{workshop.content.metadata?.mode || 'webinar'}</Badge>
-                  <h1 className="text-2xl font-bold text-slate-900 mt-2 truncate">{workshop.content.title}</h1>
-                  <p className="text-xs text-slate-400 mt-1.5 flex flex-wrap gap-x-2 gap-y-1">
-                    <span>{workshop.content.estimated_duration_minutes} min</span>
-                    <span>·</span>
-                    <span>{steps.length} steps</span>
-                    <span>·</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />{steps.filter(s => s.type === 'slide').length} slides</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{steps.filter(s => s.type === 'poll').length} polls</span>
-                    <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />{steps.filter(s => s.type === 'quiz').length} quizzes</span>
-                  </p>
-                </div>
-                <div className="hidden sm:flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30 shrink-0">
-                  <Layers className="w-5 h-5 text-white" />
-                </div>
-              </div>
-            </div>
-            {error && <div className="mb-3 rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-600 backdrop-blur">{error}</div>}
-            <div className="space-y-2 mb-4">
-              {steps.map((s, i) => (
-                <StepEditor key={i} step={s} idx={i} total={steps.length}
-                  onChange={u => updateStep(i, u)} onDelete={() => deleteStep(i)} onMove={d => moveStep(i, d)} />
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2 mb-6">
-              {(['slide', 'poll', 'quiz'] as const).map(type => (
-                <button key={type} onClick={() => addStep(type)} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-600 backdrop-blur hover:border-indigo-300 hover:bg-white hover:text-indigo-700 transition-all">
-                  <Plus className="w-3.5 h-3.5" /> Add {type}
-                </button>
-              ))}
-            </div>
-            <div className="sticky bottom-4 z-10">
-              <button onClick={publish} disabled={saving || steps.length === 0}
-                className="group relative w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 px-6 py-3.5 text-base font-semibold text-white shadow-2xl shadow-indigo-500/40 hover:shadow-indigo-500/60 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:hover:translate-y-0">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                {saving ? 'Saving...' : 'Save and publish'} {!saving && <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-              </button>
             </div>
           </div>
         )}

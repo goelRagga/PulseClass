@@ -66,6 +66,9 @@ export const api = {
   updateWorkshop: (id: string, content: unknown) =>
     req(`/workshops/${id}`, { method: 'PUT', body: JSON.stringify(content) }),
 
+  suggestWorkshop: (title: string, steps: unknown[]) =>
+    req('/workshops/suggest', { method: 'POST', body: JSON.stringify({ title, steps }) }),
+
   // Sessions
   startSession: (workshopId: string, hostId?: string) =>
     req('/sessions/start', {

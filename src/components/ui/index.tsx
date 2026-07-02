@@ -3,14 +3,16 @@ import { Loader2, TrendingUp, Users, Activity } from 'lucide-react'
 
 const LOGO_SRC = 'https://res.cloudinary.com/dvbdvkhs/image/upload/v1782943876/Screenshot_2026-07-02_at_3.38.00_AM_amx1nt.png'
 
-export function Logo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-  const sizes = { sm: 'text-sm', md: 'text-base', lg: 'text-xl' }
+export function Logo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+  const sizes = { sm: 'text-sm', md: 'text-base', lg: 'text-xl', xl: 'text-[1.15rem]' }
+  const iconSizes = { sm: 'h-8 w-8', md: 'h-9 w-9', lg: 'h-11 w-11', xl: 'h-12 w-12' }
+  const iconGlyphSizes = { sm: 'h-4 w-4', md: 'h-4 w-4', lg: 'h-5 w-5', xl: 'h-5 w-5' }
   return (
     <div className={clsx('flex items-center gap-2.5 font-semibold tracking-tight text-gray-900', sizes[size])}>
-      <div className="relative flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-indigo-600 to-violet-600 shadow-[0_10px_24px_rgba(59,110,244,0.28)] ring-1 ring-white/70">
+      <div className={clsx('relative flex flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-indigo-600 to-violet-600 shadow-[0_10px_24px_rgba(59,110,244,0.28)] ring-1 ring-white/70', iconSizes[size])}>
         <img src={LOGO_SRC} alt="" className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-white/10" />
-        <Activity className="relative z-[1] h-4 w-4 text-white" />
+        <Activity className={clsx('relative z-[1] text-white', iconGlyphSizes[size])} />
       </div>
       IntelliMeet
     </div>

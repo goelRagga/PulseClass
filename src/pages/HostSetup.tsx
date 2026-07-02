@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Loader2, ArrowLeft, Radio, Copy, Check } from 'lucide-react'
-import { Logo } from '@/components/ui'
+import { Loader2, Radio, Copy, Check } from 'lucide-react'
+import { HostHeader } from '@/components/host/HostHeader'
 import { api } from '@/lib/api'
 import { useHostStore } from '@/stores'
 import type { Session } from '@/types'
@@ -48,10 +48,15 @@ export default function HostSetup() {
 
   return (
     <div className="app-shell min-h-screen flex flex-col">
-      <nav className="glass-panel border-x-0 border-t-0 shadow-sm px-6 py-4 flex items-center justify-between">
-        <Logo />
-        <button onClick={() => nav('/host/create')} className="btn-ghost text-sm"><ArrowLeft className="w-4 h-4" /> Back</button>
-      </nav>
+      <HostHeader
+        backTo="/host/workshops"
+        backLabel="Sessions"
+        breadcrumbs={[
+          { label: 'Host', to: '/host/dashboard' },
+          { label: 'Sessions', to: '/host/workshops' },
+          { label: 'Launch' },
+        ]}
+      />
       <div className="flex-1 flex items-center justify-center px-4">
         {loading ? (
           <div className="text-center"><Loader2 className="w-8 h-8 text-brand-500 animate-spin mx-auto mb-3" /><p className="text-sm text-gray-500">Creating session…</p></div>
