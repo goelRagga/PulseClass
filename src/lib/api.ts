@@ -88,6 +88,9 @@ export const api = {
   nextStep: (sessionId: string) =>
     req(`/sessions/${sessionId}/next`, { method: 'POST', body: JSON.stringify({}) }),
 
+  previousStep: (sessionId: string) =>
+    req(`/sessions/${sessionId}/previous`, { method: 'POST', body: JSON.stringify({}) }),
+
   submitAnswer: (sessionId: string, body: {
     event_id: string; participant_id: string; answer: string; is_correct?: boolean
   }) => req(`/sessions/${sessionId}/answer`, { method: 'POST', body: JSON.stringify(body) }),

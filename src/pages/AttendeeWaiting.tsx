@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 import { Logo } from '@/components/ui'
 import { useAttendeeStore } from '@/stores'
 import { useRealtimeSession } from '@/hooks/useRealtime'
@@ -39,24 +40,44 @@ export default function AttendeeWaiting() {
   }, [roomCode, nav, setWorkshop, setCurrentStep])
 
   return (
-    <div className="app-shell min-h-screen flex flex-col">
-      <nav className="glass-panel border-x-0 border-t-0 shadow-sm px-6 py-4"><Logo /></nav>
-      <div className="flex-1 flex items-center justify-center px-4">
-        <div className="text-center max-w-sm glass-panel p-10 animate-scale-in">
-          <div className="w-16 h-16 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center mx-auto mb-5">
-            <div className="w-7 h-7 rounded-full border-[3px] border-brand-500 border-t-transparent animate-spin" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Waiting for host…</h2>
-          <p className="text-sm text-gray-500 mb-6">
-            Hi <span className="font-semibold text-gray-700">{displayName}</span>! The session will start soon.
-          </p>
-          {roomCode && (
-            <div className="mb-6">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Room code</p>
-              <div className="font-mono text-xl font-bold tracking-[0.3em] text-brand-700 bg-brand-50/80 border border-brand-200 rounded-2xl py-2.5 backdrop-blur-xl">{roomCode}</div>
+    <div className="min-h-screen bg-[#f8f9ff] flex flex-col">
+      {/* Top bar */}
+      <nav className="h-16 bg-white/70 backdrop-blur-xl border-b border-slate-200/80 flex items-center px-8 sticky top-0 z-40">
+        <Logo size="md" />
+      </nav>
+
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm text-center">
+          {/* Spinner card */}
+          <div className="bg-white/70 backdrop-blur-xl border border-slate-200/80 rounded-2xl p-10 shadow-[0_4px_6px_rgba(99,102,241,0.05),0_10px_15px_rgba(99,102,241,0.08)]">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#e1e0ff] mb-6">
+              <div className="h-7 w-7 rounded-full border-[3px] border-[#4648d4] border-t-transparent animate-spin" />
             </div>
-          )}
-          <button onClick={() => nav('/join')} className="btn-ghost text-sm">Leave session</button>
+
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#4648d4] mb-2">Session room</p>
+            <h2 className="text-[22px] font-bold text-slate-900 mb-2">Waiting for host…</h2>
+            <p className="text-[13px] text-slate-500 leading-relaxed mb-6">
+              Hi <span className="font-semibold text-slate-700">{displayName}</span>! The session will start soon.
+            </p>
+
+            {roomCode && (
+              <div className="mb-6">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.18em] mb-2">Room code</p>
+                <div className="font-mono text-xl font-bold tracking-[0.3em] text-[#4648d4] bg-[#eff4ff] border border-[#4648d4]/20 rounded-xl py-3">
+                  {roomCode}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => nav('/join')}
+              className="flex items-center justify-center gap-2 w-full py-2.5 text-[13px] font-medium text-slate-500 hover:text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Leave session
+            </button>
+          </div>
         </div>
       </div>
     </div>

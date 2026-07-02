@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarDays, BookOpen, BarChart3, Settings,
-  ArrowLeft, RefreshCw, Plus, Bell, HelpCircle, Radio, Layers,
+  RefreshCw, Plus, Bell, HelpCircle, Radio, Layers,
   FileText, Clock, Loader2, Search, Info, Pencil,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Logo } from '@/components/ui'
+import { HostBreadcrumbs } from '@/components/host/HostHeader'
 import { api } from '@/lib/api'
 import { useAuthStore, useHostStore } from '@/stores'
 import type { Workshop, WorkshopContent, WorkshopStep } from '@/types'
@@ -182,11 +183,9 @@ export default function HostWorkshops() {
       <aside className="fixed inset-y-0 left-0 w-64 flex flex-col bg-white/70 backdrop-blur-xl border-r border-slate-200/80 py-6 px-4 z-50 shrink-0">
         <div className="px-2 mb-8">
           <Logo size="md" />
-          <p className="mt-1 text-[11px] font-medium text-slate-400 pl-[52px]">Host Admin</p>
         </div>
         <nav className="flex-1 space-y-1">
           <NavItem label="Dashboard"  icon={LayoutDashboard} onClick={() => nav('/host/dashboard')} />
-          <NavItem label="Sessions"   icon={CalendarDays}    onClick={() => nav('/host/create')} />
           <NavItem label="Sessions Library"    icon={BookOpen}        active onClick={() => {}} />
           {/* <NavItem label="Analytics"  icon={BarChart3}       onClick={() => {}} />
           <NavItem label="Settings"   icon={Settings}        onClick={() => {}} /> */}
@@ -197,8 +196,8 @@ export default function HostWorkshops() {
               {userName[0]?.toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-[13px] font-bold text-slate-900 truncate">{userName}</p>
-              <p className="text-[10px] text-slate-400">Host Admin</p>
+              <p className="text-[13px] font-bold text-slate-900 truncate">{userName.toUpperCase()}</p>
+              <p className="text-[11px] font-medium text-slate-400">Host</p>
             </div>
           </div>
         </div>
@@ -209,14 +208,17 @@ export default function HostWorkshops() {
 
         {/* Header */}
         <header className="h-16 bg-white/70 backdrop-blur-xl border-b border-slate-200/80 flex items-center justify-between px-8 sticky top-0 z-40 shrink-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => nav('/host/dashboard')}
-              className="p-2 hover:bg-slate-100 rounded-full transition-all"
-            >
-              <ArrowLeft className="h-4 w-4 text-slate-500" />
-            </button>
-            <h2 className="text-[15px] font-bold text-slate-900">Session Library</h2>
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <label className="relative hidden lg:flex items-center w-96">
+              <Search className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
+              <input
+                type="search"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search sessions, resources..."
+                className="w-full pl-10 pr-4 py-2 bg-[#eff4ff] border border-slate-200/70 rounded-full text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4648d4]/20 focus:border-[#4648d4] transition-all"
+              />
+            </label>
           </div>
           <div className="flex items-center gap-2.5">
             <button
@@ -243,6 +245,15 @@ export default function HostWorkshops() {
             </div>
           </div>
         </header>
+
+        <div className="shrink-0 px-8 py-3 border-b border-slate-200/60 bg-white/40">
+          <HostBreadcrumbs
+            items={[
+              { label: 'Dashboard', to: '/host/dashboard' },
+              { label: 'Sessions' },
+            ]}
+          />
+        </div>
 
         {/* Body: list panel + detail area */}
         <div className="flex flex-1 overflow-hidden">
@@ -401,13 +412,13 @@ export default function HostWorkshops() {
                           Review slides, polls, quiz options, and correct answers.
                         </p>
                       </div>
-                      <button
+                      {/* <button
                         onClick={() => nav('/host/create')}
                         className="flex items-center gap-1.5 text-[#4648d4] font-bold text-[13px] hover:underline underline-offset-2"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         Edit Outline
-                      </button>
+                      </button> */}
                     </div>
 
                     {/* Step cards */}
@@ -427,9 +438,9 @@ export default function HostWorkshops() {
                     Ready to launch. All steps verified.
                   </div>
                   <div className="flex items-center gap-3">
-                    <button className="px-5 py-2.5 text-[13px] font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all">
+                    {/* <button className="px-5 py-2.5 text-[13px] font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-all">
                       Save as Draft
-                    </button>
+                    </button> */}
                     <button
                       onClick={launch}
                       className="flex items-center gap-2 px-6 py-2.5 bg-[#4648d4] text-white font-bold text-[13px] rounded-xl shadow-[0_4px_14px_rgba(70,72,212,0.25)] hover:opacity-90 active:scale-[0.98] transition-all"

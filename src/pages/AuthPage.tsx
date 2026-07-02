@@ -68,9 +68,7 @@ export default function AuthPage() {
 
         <div className="relative z-[1] flex min-h-[100dvh] w-full flex-col justify-between p-10 xl:p-14">
           <div className="flex items-center gap-2.5 font-bold tracking-tight text-white">
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-br from-white to-white/80 shadow-lg shadow-indigo-900/40">
-              <Activity className="h-4.5 w-4.5 text-indigo-600" />
-            </div>
+            <Logo size="md" hide={true} />
             <span className="text-lg">IntelliMeet</span>
           </div>
 

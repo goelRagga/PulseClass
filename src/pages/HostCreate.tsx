@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft,
   BarChart3,
   BookOpen,
   Briefcase,
@@ -17,6 +16,7 @@ import {
   Radio,
   RefreshCw,
   Save,
+  Search,
   Settings,
   Smartphone,
   Sparkles,
@@ -24,9 +24,8 @@ import {
   Upload,
 } from 'lucide-react'
 import { clsx } from 'clsx'
-import { Logo } from '@/components/ui'
-import { HostHeader } from '@/components/host/HostHeader'
-import { Badge } from '@/components/ui'
+import { Badge, Logo, Select } from '@/components/ui'
+import { HostBreadcrumbs, HostHeader } from '@/components/host/HostHeader'
 import { api } from '@/lib/api'
 import { useAuthStore, useHostStore } from '@/stores'
 import type { CreationMode, Workshop, WorkshopStep } from '@/types'
@@ -244,6 +243,7 @@ export default function HostCreate() {
     reference_document_name: '',
     reference_document_content: '',
   })
+  const [headerSearchQuery, setHeaderSearchQuery] = useState('')
 
   const chooseMode = (nextMode: CreationMode) => {
     setMode(nextMode); setError(''); setScreen('form')
@@ -385,7 +385,6 @@ export default function HostCreate() {
         <aside className="fixed inset-y-0 left-0 w-64 flex flex-col bg-white/70 backdrop-blur-xl border-r border-slate-200/80 py-6 px-4 z-50 shrink-0">
           <div className="px-2 mb-8">
             <Logo size="md" />
-            <p className="mt-1 text-[11px] font-medium text-slate-400 pl-[52px]">Host Admin</p>
           </div>
           <nav className="flex-1 space-y-1">
             <EditorNavItem label="Dashboard"  icon={LayoutDashboard} onClick={() => nav('/host/dashboard')} />
@@ -401,7 +400,7 @@ export default function HostCreate() {
               </div>
               <div className="min-w-0">
                 <p className="text-[13px] font-bold text-slate-900 truncate">{userName}</p>
-                <p className="text-[10px] text-slate-400">Host Admin</p>
+                <p className="text-[10px] text-slate-400">Host</p>
               </div>
             </div>
           </div>
@@ -412,14 +411,17 @@ export default function HostCreate() {
 
           {/* Top nav */}
           <header className="h-16 bg-white/70 backdrop-blur-xl border-b border-slate-200/80 flex items-center justify-between px-8 sticky top-0 z-40 shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-[13px] text-slate-500">
-                <button onClick={() => nav('/host/dashboard')} className="hover:text-[#4648d4] transition-colors font-medium">
-                  Dashboard
-                </button>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-                <span className="text-slate-900 font-semibold">New Session</span>
-              </div>
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <label className="relative hidden lg:flex items-center w-96">
+                <Search className="absolute left-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
+                <input
+                  type="search"
+                  value={headerSearchQuery}
+                  onChange={e => setHeaderSearchQuery(e.target.value)}
+                  placeholder="Search sessions, resources..."
+                  className="w-full pl-10 pr-4 py-2 bg-[#eff4ff] border border-slate-200/70 rounded-full text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4648d4]/20 focus:border-[#4648d4] transition-all"
+                />
+              </label>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -445,6 +447,15 @@ export default function HostCreate() {
           {/* Scrollable canvas */}
           <main className="flex-1 overflow-y-auto px-8 py-8">
             <div className="max-w-[1060px] mx-auto">
+              <div className="mb-6">
+                <HostBreadcrumbs
+                  items={[
+                    { label: 'Dashboard', to: '/host/dashboard' },
+                    { label: 'Sessions', to: '/host/workshops' },
+                    { label: 'Create' },
+                  ]}
+                />
+              </div>
 
               {/* Session header */}
               <div className="flex items-end justify-between gap-4 mb-8">
@@ -503,7 +514,7 @@ export default function HostCreate() {
                 <div className="col-span-4 sticky top-0 flex flex-col gap-4 max-h-[calc(100dvh-4rem)] overflow-y-auto pb-8">
 
                   {/* IntelliAssistant */}
-                  <div className="bg-white/70 overflow-auto backdrop-blur-xl border border-slate-200/80 rounded-2xl p-6 shadow-[0_4px_6px_rgba(99,102,241,0.05)] relative overflow-hidden">
+                  <div className="bg-white/70 overflow-auto backdrop-blur-xl border border-slate-200/80 rounded-2xl p-6 shadow-[0_4px_6px_rgba(99,102,241,0.05)] relative overflow-y-auto overflow-x-hidden">
                     <div className="absolute -right-4 -top-4 opacity-[0.07] pointer-events-none">
                       <Sparkles className="h-[90px] w-[90px] text-[#4648d4]" />
                     </div>
@@ -577,46 +588,7 @@ export default function HostCreate() {
                     </div>
                   </div>
 
-                  {/* Mobile Preview */}
-                  <div className="rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-900 shadow-lg">
-                    <div className="px-4 py-3 bg-zinc-900 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Smartphone className="h-3.5 w-3.5 text-zinc-400" />
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Mobile Preview</span>
-                      </div>
-                      <div className="flex gap-1">
-                        <div className="w-2 h-2 rounded-full bg-zinc-700" />
-                        <div className="w-2 h-2 rounded-full bg-zinc-700" />
-                      </div>
-                    </div>
-                    <div className="h-48 bg-white m-2 rounded-xl overflow-hidden flex flex-col items-center justify-center p-5 text-center relative">
-                      {previewStep ? (
-                        <>
-                          <div className="mb-3">
-                            <span className={clsx('px-2 py-0.5 text-[10px] font-bold rounded uppercase', STEP_STYLE[previewStep.type].pill)}>
-                              {previewStep.type}
-                            </span>
-                          </div>
-                          <h5 className="text-[15px] font-bold text-slate-900 mb-2 leading-snug">
-                            {previewStep.type === 'slide' ? (previewStep.title || 'Slide') : (previewStep.question || 'Question')}
-                          </h5>
-                          <p className="text-[12px] text-slate-500 leading-relaxed">
-                            {previewStep.type === 'slide'
-                              ? previewStep.talking_points?.[0] || ''
-                              : previewStep.options?.[0] || ''
-                            }
-                          </p>
-                          <div className="absolute bottom-3 left-0 w-full px-4 flex justify-between items-center">
-                            <div className="h-0.5 w-10 bg-slate-200 rounded-full" />
-                            <span className="text-[10px] text-slate-400">1 / {steps.length}</span>
-                            <div className="h-0.5 w-10 bg-slate-200 rounded-full" />
-                          </div>
-                        </>
-                      ) : (
-                        <p className="text-[13px] text-slate-400">No steps yet</p>
-                      )}
-                    </div>
-                  </div>
+                 
                 </div>
               </div>
             </div>
@@ -636,28 +608,23 @@ export default function HostCreate() {
       </div>
 
       <HostHeader
-        backTo={screen !== 'chooser' ? '/host/workshops' : '/host/dashboard'}
-        backLabel={screen !== 'chooser' ? 'Sessions' : 'Dashboard'}
-        breadcrumbs={[
-          { label: 'Host', to: '/host/dashboard' },
-          { label: 'Sessions', to: '/host/workshops' },
-          { label: screen === 'chooser' ? 'Create' : mode === 'webinar' ? 'Webinar' : 'Workshop' },
-        ]}
-        rightSlot={(
-          <div className="flex items-center gap-2 shrink-0">
-            {screen !== 'chooser' && (
-              <button onClick={() => setScreen('chooser')} className="btn-ghost text-sm">
-                <ChevronLeft className="w-4 h-4" /> Change session type
-              </button>
-            )}
-            <button onClick={() => nav('/host/dashboard')} className="btn-ghost text-sm">
-              <ArrowLeft className="w-4 h-4" /> Dashboard
-            </button>
-          </div>
-        )}
+        searchValue={headerSearchQuery}
+        onSearchChange={setHeaderSearchQuery}
+       
       />
 
       <div className="relative z-10 flex-1 px-4 sm:px-6 py-10">
+        <div className="max-w-5xl mx-auto mb-6">
+          <HostBreadcrumbs
+            items={[
+              { label: 'Dashboard', to: '/host/dashboard' },
+              { label: 'Sessions', to: '/host/workshops' },
+              { label: screen === 'chooser' ? 'Create' : mode === 'webinar' ? 'Webinar' : 'Workshop' },
+            ]}
+          />
+         
+        </div>
+
         {screen === 'chooser' && (
           <div className="max-w-5xl mx-auto animate-fade-in">
             <div className="mb-8">
@@ -716,15 +683,22 @@ export default function HostCreate() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="label">Duration</label>
-                    <select className="select" value={webinarForm.duration} onChange={e => setWebinarForm(f => ({ ...f, duration: Number(e.target.value) }))}>
-                      {DURATIONS.map(d => <option key={d} value={d}>{d} minutes</option>)}
-                    </select>
+                    <Select
+                      value={webinarForm.duration}
+                      onChange={value => setWebinarForm(f => ({ ...f, duration: Number(value) }))}
+                      options={DURATIONS.map(d => ({ value: d, label: `${d} minutes` }))}
+                    />
                   </div>
                   <div>
                     <label className="label">Audience</label>
-                    <select className="select" value={webinarForm.level} onChange={e => setWebinarForm(f => ({ ...f, level: e.target.value as typeof LEVELS[number] }))}>
-                      {LEVELS.map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}
-                    </select>
+                    <Select
+                      value={webinarForm.level}
+                      onChange={value => setWebinarForm(f => ({ ...f, level: value as typeof LEVELS[number] }))}
+                      options={LEVELS.map(level => ({
+                        value: level,
+                        label: `${level.charAt(0).toUpperCase()}${level.slice(1)}`,
+                      }))}
+                    />
                   </div>
                 </div>
                 <div>
@@ -781,7 +755,14 @@ export default function HostCreate() {
                     <div><label className="label">Project description *</label><textarea className="input" rows={5} value={workshopForm.project_description} onChange={e => setWorkshopForm(f => ({ ...f, project_description: e.target.value }))} placeholder="Describe the business situation, current challenges, stakeholders, constraints, and what is known so far." /></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div><label className="label">Business domain *</label><input className="input" value={workshopForm.business_domain} onChange={e => setWorkshopForm(f => ({ ...f, business_domain: e.target.value }))} placeholder="e.g. Retail supply chain" /></div>
-                      <div><label className="label">Workshop type *</label><select className="select" value={workshopForm.workshop_type} onChange={e => setWorkshopForm(f => ({ ...f, workshop_type: e.target.value as typeof WORKSHOP_TYPES[number]['value'] }))}>{WORKSHOP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+                      <div>
+                        <label className="label">Workshop type *</label>
+                        <Select
+                          value={workshopForm.workshop_type}
+                          onChange={value => setWorkshopForm(f => ({ ...f, workshop_type: value as typeof WORKSHOP_TYPES[number]['value'] }))}
+                          options={WORKSHOP_TYPES.map(t => ({ value: t.value, label: t.label }))}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -790,9 +771,36 @@ export default function HostCreate() {
                   <div className="space-y-4 animate-fade-in">
                     <div><label className="label">Objective of the workshop *</label><textarea className="input" rows={5} value={workshopForm.objective} onChange={e => setWorkshopForm(f => ({ ...f, objective: e.target.value }))} placeholder="What should participants decide, align on, diagnose, or produce by the end?" /></div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div><label className="label">Duration</label><select className="select" value={workshopForm.duration} onChange={e => setWorkshopForm(f => ({ ...f, duration: Number(e.target.value) }))}>{DURATIONS.map(d => <option key={d} value={d}>{d} minutes</option>)}</select></div>
-                      <div><label className="label">Audience</label><select className="select" value={workshopForm.level} onChange={e => setWorkshopForm(f => ({ ...f, level: e.target.value as typeof LEVELS[number] }))}>{LEVELS.map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>)}</select></div>
-                      <div><label className="label">Tone</label><select className="select" value={workshopForm.tone} onChange={e => setWorkshopForm(f => ({ ...f, tone: e.target.value as typeof TONES[number] }))}>{TONES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select></div>
+                      <div>
+                        <label className="label">Duration</label>
+                        <Select
+                          value={workshopForm.duration}
+                          onChange={value => setWorkshopForm(f => ({ ...f, duration: Number(value) }))}
+                          options={DURATIONS.map(d => ({ value: d, label: `${d} minutes` }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Audience</label>
+                        <Select
+                          value={workshopForm.level}
+                          onChange={value => setWorkshopForm(f => ({ ...f, level: value as typeof LEVELS[number] }))}
+                          options={LEVELS.map(level => ({
+                            value: level,
+                            label: `${level.charAt(0).toUpperCase()}${level.slice(1)}`,
+                          }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Tone</label>
+                        <Select
+                          value={workshopForm.tone}
+                          onChange={value => setWorkshopForm(f => ({ ...f, tone: value as typeof TONES[number] }))}
+                          options={TONES.map(tone => ({
+                            value: tone,
+                            label: `${tone.charAt(0).toUpperCase()}${tone.slice(1)}`,
+                          }))}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
